@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
+import SCENARIOS from "./data/scenarios";
+import Button from "@material-ui/core/Button";
 import TextField from "@material-ui/core/TextField";
 import Container from "@material-ui/core/Container";
 import Typography from "@material-ui/core/Typography";
@@ -10,68 +12,32 @@ import TableContainer from "@material-ui/core/TableContainer";
 import TableHead from "@material-ui/core/TableHead";
 import TableRow from "@material-ui/core/TableRow";
 
-const LIST = [
-  {
-    camp: "A",
-    candidates: 2,
-    votes: 1500,
-  },
-  {
-    camp: "B",
-    candidates: 2,
-    votes: 1500,
-  },
-  {
-    camp: "C",
-    candidates: 2,
-    votes: 900,
-  },
-  {
-    camp: "D",
-    candidates: 2,
-    votes: 500,
-  },
-  {
-    camp: "E",
-    candidates: 2,
-    votes: 500,
-  },
-  {
-    camp: "F",
-    candidates: 2,
-    votes: 200,
-  },
-];
-
-const SEATS = 25;
-
 export default function App() {
-  const [list, setList] = useState(LIST);
-  const { register, handleSubmit, getValues } = useForm();
+  const [scenario, setScenario] = useState(() => Object.values(SCENARIOS)[0]);
+  const { register, getValues } = useForm();
 
   useEffect(() => {
     getResult();
-  }, []);
-
-  const onSubmit = (data) => {
-    console.log(data);
-  };
+  }, [scenario.name_zh]);
 
   const getResult = () => {
     const values = getValues();
-    const tempList = list.map((li, i) => {
+    const tempList = scenario.candidates_list.map((li, i) => {
       return {
         ...li,
         votes: +values[`list-${i + 1}`],
       };
     });
     const totalVotes = tempList.reduce((a, c) => a + c.votes, 0);
-    const hareQuota = totalVotes / SEATS;
+    const hareQuota = totalVotes / scenario.seats;
 
-    let totalSurplusSeats = SEATS;
+    let totalSurplusSeats = scenario.seats;
+
+    // First Round - Each party is first allocated a number of seats equal to their integer
     const firstRoundResult = tempList.map((li) => {
       const votesPerQuota = li.votes / hareQuota;
-      const automaticSeats = Math.floor(votesPerQuota);
+      const automaticSeats = Math.min(li.candidates, Math.floor(votesPerQuota));
+
       totalSurplusSeats -= automaticSeats;
       return {
         ...li,
@@ -81,50 +47,80 @@ export default function App() {
       };
     });
 
-    const lowestRemainder = firstRoundResult
-      .map((r) => r.remainder)
-      .sort((a, b) => b - a)[totalSurplusSeats - 1]
+    firstRoundResult
+      .sort((a, b) => {
+        if (b.remainder > a.remainder) return 1;
+        if (b.remainder < a.remainder) return -1;
 
-    const secondResult = firstRoundResult.map((li, i) => {
-      const surplusSeats = li.remainder >= lowestRemainder ? 1 : 0;
-      return {
+        if (b.votes > a.votes) return 1;
+        if (b.votes < a.votes) return -1;
+
+        return 0
+      })
+      .forEach((item) => {
+        if (totalSurplusSeats <= 0 || item.candidates === item.automaticSeats) {
+          item.surplusSeats = 0;
+        } else {
+          item.surplusSeats = 1;
+          totalSurplusSeats--;
+        }
+      });
+
+    const result = firstRoundResult
+      .sort((a, b) => a.number - b.number)
+      .map((li, i) => ({
         ...li,
-        surplusSeats,
-        seats: li.automaticSeats + surplusSeats,
-      };
-    });
+        seats: li.automaticSeats + li.surplusSeats,
+      }));
 
-    setList(secondResult);
+    setScenario(scenario => ({
+      ...scenario,
+      candidates_list: result,
+    }));
   };
+
+  const { name_zh, seats, candidates_list } = scenario;
 
   return (
     <Container>
-      <Typography variant="h6">
-        Total Votes: {list.reduce((a, c) => a + c.votes, 0)}
+      {Object.values(SCENARIOS).map((s, i) => (
+        <Button
+          key={i}
+          variant="contained"
+          onClick={() => {
+            setScenario(s);
+          }}
+        >
+          {s.name_zh}
+        </Button>
+      ))}
+      <Typography variant="h6">{name_zh}</Typography>
+      <Typography variant="body1">
+        總有效票數：{candidates_list.reduce((a, c) => a + c.votes, 0)}
       </Typography>
-      <Typography variant="h6">Seats: {SEATS}</Typography>
-      <form onSubmit={handleSubmit(onSubmit)}>
+      <Typography variant="body1">議席：{seats}</Typography>
+      <form>
         <TableContainer>
-          <Table aria-label="simple table">
+          <Table size="small" aria-label="a dense table">
             <TableHead>
               <TableRow>
                 <TableCell>-</TableCell>
-                <TableCell align="right">Votes/Quota</TableCell>
-                <TableCell align="right">Auto Seats</TableCell>
-                <TableCell align="right">Remainder</TableCell>
-                <TableCell align="right">Surplus</TableCell>
-                <TableCell align="right">Seats</TableCell>
+                <TableCell align="right">得票／餘額</TableCell>
+                <TableCell align="right">自動分配</TableCell>
+                <TableCell align="right">餘額</TableCell>
+                <TableCell align="right">餘席</TableCell>
+                <TableCell align="right">議席</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
-              {list.map((li, i) => (
+              {candidates_list.map((li, i) => (
                 <TableRow key={i}>
                   <TableCell component="th" scope="row">
                     <TextField
                       variant="outlined"
-                      label={`List ${i + 1}`}
+                      label={`${i + 1}. ${li.first_candidate_name_zh}`}
                       key={i}
-                      onChange={(e) => getResult(e)}
+                      onChange={() => getResult()}
                       type="number"
                       name={`list-${i + 1}`}
                       defaultValue={li.votes}
@@ -140,7 +136,9 @@ export default function App() {
                     {Number.parseFloat(li.remainder).toFixed(2)}
                   </TableCell>
                   <TableCell align="right">{li.surplusSeats}</TableCell>
-                  <TableCell align="right">{li.seats}</TableCell>
+                  <TableCell align="right">
+                    {li.seats} / {li.candidates}
+                  </TableCell>
                 </TableRow>
               ))}
             </TableBody>
