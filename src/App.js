@@ -14,9 +14,10 @@ import TableRow from "@material-ui/core/TableRow";
 
 export default function App() {
   const [scenario, setScenario] = useState(() => Object.values(SCENARIOS)[0]);
-  const { register, getValues } = useForm();
+  const { register, getValues, setValue } = useForm();
 
   useEffect(() => {
+    setValue(scenario.candidates_list.map(c => ({[c.first_candidate_name_zh]: c.votes})))
     getResult();
   }, [scenario.name_zh]);
 
@@ -25,7 +26,7 @@ export default function App() {
     const tempList = scenario.candidates_list.map((li, i) => {
       return {
         ...li,
-        votes: +values[`list-${i + 1}`],
+        votes: +values[li.first_candidate_name_zh],
       };
     });
     const totalVotes = tempList.reduce((a, c) => a + c.votes, 0);
@@ -122,7 +123,7 @@ export default function App() {
                       key={i}
                       onChange={() => getResult()}
                       type="number"
-                      name={`list-${i + 1}`}
+                      name={li.first_candidate_name_zh}
                       defaultValue={li.votes}
                       placeholder={`list ${i + 1}`}
                       inputRef={register({ required: true, min: 0 })}
