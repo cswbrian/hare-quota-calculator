@@ -11,6 +11,7 @@ import TableCell from "@material-ui/core/TableCell";
 import TableContainer from "@material-ui/core/TableContainer";
 import TableHead from "@material-ui/core/TableHead";
 import TableRow from "@material-ui/core/TableRow";
+import MyVisComponent from "./component/MyVisComponent"
 
 export default function App() {
   const [scenario, setScenario] = useState(() => Object.values(SCENARIOS)[0]);
@@ -76,6 +77,7 @@ export default function App() {
 
     setScenario(scenario => ({
       ...scenario,
+      maxVote: Math.max(...result.map(r => r.votes)),
       candidates_list: result,
     }));
   };
@@ -106,6 +108,7 @@ export default function App() {
             <TableHead>
               <TableRow>
                 <TableCell>-</TableCell>
+                <TableCell align="right">Chart</TableCell>
                 <TableCell align="right">得票／餘額</TableCell>
                 <TableCell align="right">自動分配</TableCell>
                 <TableCell align="right">餘額</TableCell>
@@ -119,7 +122,7 @@ export default function App() {
                   <TableCell component="th" scope="row">
                     <TextField
                       variant="outlined"
-                      label={`${i + 1}. ${li.first_candidate_name_zh}`}
+                      label={`${li.number}. ${li.first_candidate_name_zh}`}
                       key={i}
                       onChange={() => getResult()}
                       type="number"
@@ -128,6 +131,9 @@ export default function App() {
                       placeholder={`list ${i + 1}`}
                       inputRef={register({ required: true, min: 0 })}
                     />
+                  </TableCell>
+                  <TableCell align="right">
+                    <MyVisComponent data={li} max={scenario.maxVote}/>
                   </TableCell>
                   <TableCell align="right">
                     {Number.parseFloat(li.votesPerQuota).toFixed(2)}
